@@ -36,7 +36,7 @@ Two layers with a strict separation: `core/` is pure Python (no PyQt6 imports); 
 
 ## Git workflow
 
-After completing any code change, automatically commit it with a descriptive message and push to `origin main`.
+After completing any code change, automatically commit it with a descriptive message. Do not auto-push — only push when explicitly asked.
 
 ## Test data
 
