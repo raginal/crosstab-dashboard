@@ -172,13 +172,4 @@ class StatsPanel(QWidget):
                 html += f"<li style='color:{info}; margin-bottom:5px;'>{escaped}</li>"
             html += "</ul>"
 
-        html += f"""
-        <p style="font-size:11px; color:{GREY_500}; margin-top:14px; border-top:1px solid #E2E8F0;
-                  padding-top:6px;">
-            Significance levels: *** p&lt;0.001 &nbsp; ** p&lt;0.01 &nbsp;
-            * p&lt;0.05 &nbsp; ns = not significant
-        </p>
-        </body></html>
-        """
-
         self.text.setHtml(html)
