@@ -34,6 +34,10 @@ Two layers with a strict separation: `core/` is pure Python (no PyQt6 imports); 
 - **`openpyxl` version pinning** — `!=3.1.0,!=3.1.1` avoids a `synchVertical` bug. `data_loader.py` catches the resulting `TypeError` and re-raises as a `ValueError` with a pip fix message as a fallback.
 - **Variable type classification** is heuristic (`variable_classifier.py`) and user-overridable in the UI. The Likert-scale detection (contiguous integers starting at 0 or 1, ending 4–12) is intentional; don't generalize it without understanding the survey context.
 
+## Git workflow
+
+After completing any code change, automatically commit it with a descriptive message and push to `origin main`.
+
 ## Test data
 
 `testing/generate_survey_data.py` generates synthetic survey data; `testing/survey_test_data.xlsx` is a pre-generated sample for manual testing. Use it to exercise the app after changes.
