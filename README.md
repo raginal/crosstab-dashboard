@@ -24,7 +24,7 @@ A local desktop application (PyQt6) for contingency table analysis of survey dat
 | Effect sizes | Cramér's V (bias-corrected), rank-biserial r, η², Spearman's ρ, Pearson's r |
 | Weighting | Optional — weighted counts/% in table; statistical tests use unweighted data |
 | Charts | Clustered bar chart (default) or Stacked bar chart for categorical; scatter for interval×interval |
-| Export | Crosstab → Excel or CSV; charts → PNG |
+| Export | Crosstab → Excel, CSV, or PNG; charts → PNG |
 
 ---
 
@@ -145,6 +145,7 @@ See [Section 6](#6-statistical-logic) for the full decision tree.
 ### `core/exporter.py` — `Exporter`
 - `export_table_excel(df, path)` — saves the display DataFrame to `.xlsx` via `openpyxl`.
 - `export_table_csv(df, path)` — saves to `.csv`.
+- `export_table_png(df, path, dpi=150)` — renders the display DataFrame as a matplotlib table figure and saves to PNG. Figure size scales with row/column count.
 - `export_figure(fig, path, dpi=150)` — saves a matplotlib Figure to PNG.
 
 ---
@@ -154,7 +155,7 @@ See [Section 6](#6-statistical-logic) for the full decision tree.
 ### `ui/palette.py`
 Single source of truth for all colors and the global Qt Style Sheet.
 
-Key constants: `PRIMARY`, `GREY_50`–`GREY_900`, `SIG_TRUE`, `SIG_FALSE`, `TABLE_*`, `EFFECT_LABEL_COLORS`, `MPL_PALETTE`, `APP_STYLESHEET`.
+Key constants: `PRIMARY`, `GREY_50`–`GREY_900`, `SIG_TRUE`, `SIG_FALSE`, `TABLE_*`, `EFFECT_LABEL_COLORS`, `MPL_PALETTE`, `MPL_SCATTER`, `MPL_TREND`, `APP_STYLESHEET`.
 
 To restyle the application change values in this file — no panel code needs to be touched.
 
@@ -177,7 +178,7 @@ Emits `analysis_requested(config)` where `config` contains `row_vars`, `col_vars
 ### `ui/panels/crosstab_panel.py` — `CrosstabPanel`
 Renders `DisplayResult` as a `QTableWidget`. N and % values for each category are shown in the same cell via `_TwoLineCellDelegate` (a `QStyledItemDelegate` subclass): the count appears in the top half of the cell; the column percentage appears in the bottom half in smaller, dimmed text.
 
-Color logic: Total row and Total column → `TABLE_TOTAL_BG` (light blue). Column headers → `TABLE_HEADER_BG` (dark slate). Export buttons write the underlying `DisplayResult.df` to Excel or CSV.
+Color logic: Total row and Total column → `TABLE_TOTAL_BG` (light blue). Column headers → `TABLE_HEADER_BG` (dark slate). Three export buttons write the underlying `DisplayResult.df` to Excel, CSV, or PNG (via `Exporter.export_table_png`).
 
 ### `ui/panels/stats_panel.py` — `StatsPanel`
 Renders `StatTestResult` as styled HTML in a read-only `QTextEdit`. Note text is HTML-escaped before insertion to prevent `<` characters (e.g. in "expected cells are < 5") from truncating the display.
@@ -196,6 +197,8 @@ Auto-selected chart logic by variable type:
 - Both categorical + Clustered → grouped countplot (`sns.countplot`)
 - Both categorical + Stacked → 100% stacked bar (% only; counts are already in the Crosstab Table)
 - Interval × Interval → scatter plot with linear trend line (radio buttons ignored)
+
+All charts draw colors from `ui/palette.py`: categorical charts use `MPL_PALETTE` (passed as `palette=` to seaborn or as explicit colors to pandas `.plot()`), scatter points use `MPL_SCATTER`, and the trend line uses `MPL_TREND`. Titles follow the uniform scheme `"{A}  by  {B}"` (scatter uses `"{X}  ×  {Y}"`). Changing those constants in `palette.py` updates every chart type simultaneously.
 
 ---
 
