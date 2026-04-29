@@ -15,9 +15,10 @@ from PyQt6.QtCore import Qt
 
 from core.variable_classifier import VariableType
 from core.exporter import Exporter
+from ui.palette import MPL_PALETTE, MPL_SCATTER, MPL_TREND
 
 
-sns.set_theme(style="whitegrid", palette="muted")
+sns.set_theme(style="whitegrid")
 
 
 class ChartPanel(QWidget):
@@ -181,9 +182,10 @@ class ChartPanel(QWidget):
         ct = pd.crosstab(df[row_var], df[col_var])
         ct_pct = ct.div(ct.sum(axis=1), axis=0) * 100
 
+        colors = sns.color_palette(MPL_PALETTE, n_colors=len(ct_pct.columns))
         ax = self.fig.add_subplot(111)
-        ct_pct.plot(kind='bar', stacked=True, ax=ax, legend=True)
-        ax.set_title(f"Column % of {col_var}\nby {row_var}")
+        ct_pct.plot(kind='bar', stacked=True, ax=ax, legend=True, color=colors)
+        ax.set_title(f"% {col_var}  by  {row_var}")
         ax.set_xlabel(row_var)
         ax.set_ylabel("Column %")
         ax.tick_params(axis='x', rotation=30)
@@ -193,8 +195,8 @@ class ChartPanel(QWidget):
         """Grouped count bar chart for categorical data (when box/violin selected)."""
         df = self._df[[row_var, col_var]].dropna()
         ax = self.fig.add_subplot(111)
-        sns.countplot(data=df, x=col_var, hue=row_var, ax=ax)
-        ax.set_title(f"Distribution of {row_var} by {col_var}")
+        sns.countplot(data=df, x=col_var, hue=row_var, ax=ax, palette=MPL_PALETTE)
+        ax.set_title(f"{col_var}  by  {row_var}")
         ax.set_xlabel(col_var)
         ax.set_ylabel("Count")
         ax.tick_params(axis='x', rotation=30)
@@ -208,11 +210,14 @@ class ChartPanel(QWidget):
         order = sorted(df[cat_var].unique(), key=str)
         if self._chart_mode == "violin" and df[cat_var].nunique() > 1:
             try:
-                sns.violinplot(data=df, x=cat_var, y=num_var, ax=ax, order=order, inner="box")
+                sns.violinplot(data=df, x=cat_var, y=num_var, ax=ax, order=order,
+                               inner="box", palette=MPL_PALETTE)
             except Exception:
-                sns.boxplot(data=df, x=cat_var, y=num_var, ax=ax, order=order)
+                sns.boxplot(data=df, x=cat_var, y=num_var, ax=ax, order=order,
+                            palette=MPL_PALETTE)
         else:
-            sns.boxplot(data=df, x=cat_var, y=num_var, ax=ax, order=order)
+            sns.boxplot(data=df, x=cat_var, y=num_var, ax=ax, order=order,
+                        palette=MPL_PALETTE)
 
         ax.set_title(f"{num_var}  by  {cat_var}")
         ax.set_xlabel(cat_var)
@@ -237,11 +242,14 @@ class ChartPanel(QWidget):
 
         if self._chart_mode == "violin" and df[col_var].nunique() > 1:
             try:
-                sns.violinplot(data=df, x=col_var, y="_code", ax=ax, order=order, inner="box")
+                sns.violinplot(data=df, x=col_var, y="_code", ax=ax, order=order,
+                               inner="box", palette=MPL_PALETTE)
             except Exception:
-                sns.boxplot(data=df, x=col_var, y="_code", ax=ax, order=order)
+                sns.boxplot(data=df, x=col_var, y="_code", ax=ax, order=order,
+                            palette=MPL_PALETTE)
         else:
-            sns.boxplot(data=df, x=col_var, y="_code", ax=ax, order=order)
+            sns.boxplot(data=df, x=col_var, y="_code", ax=ax, order=order,
+                        palette=MPL_PALETTE)
 
         ax.set_yticks(range(len(cats)))
         ax.set_yticklabels(cats)
@@ -254,13 +262,13 @@ class ChartPanel(QWidget):
         """Scatter plot with Spearman regression trend for interval × interval."""
         df = self._df[[x_var, y_var]].dropna()
         ax = self.fig.add_subplot(111)
-        ax.scatter(df[x_var], df[y_var], alpha=0.4, s=20, color="#1f77b4")
+        ax.scatter(df[x_var], df[y_var], alpha=0.4, s=20, color=MPL_SCATTER)
 
         # Trend line via numpy polyfit
         if len(df) >= 3:
             m, b = np.polyfit(df[x_var], df[y_var], 1)
             xs = np.linspace(df[x_var].min(), df[x_var].max(), 200)
-            ax.plot(xs, m * xs + b, color="#d62728", linewidth=1.5, label="Linear trend")
+            ax.plot(xs, m * xs + b, color=MPL_TREND, linewidth=1.5, label="Linear trend")
             ax.legend()
 
         ax.set_xlabel(x_var)

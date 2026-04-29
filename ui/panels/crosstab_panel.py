@@ -113,12 +113,16 @@ class CrosstabPanel(QWidget):
         btn_row.addStretch()
         self.export_excel_btn = QPushButton("Export to Excel")
         self.export_csv_btn   = QPushButton("Export to CSV")
+        self.export_png_btn   = QPushButton("Export to PNG")
         self.export_excel_btn.setEnabled(False)
         self.export_csv_btn.setEnabled(False)
+        self.export_png_btn.setEnabled(False)
         self.export_excel_btn.clicked.connect(self._export_excel)
         self.export_csv_btn.clicked.connect(self._export_csv)
+        self.export_png_btn.clicked.connect(self._export_png)
         btn_row.addWidget(self.export_excel_btn)
         btn_row.addWidget(self.export_csv_btn)
+        btn_row.addWidget(self.export_png_btn)
         layout.addLayout(btn_row)
 
     # ── Public API ─────────────────────────────────────────────────────────────
@@ -135,6 +139,7 @@ class CrosstabPanel(QWidget):
         self._update_caption(result, stat_result)
         self.export_excel_btn.setEnabled(True)
         self.export_csv_btn.setEnabled(True)
+        self.export_png_btn.setEnabled(True)
 
     def clear(self) -> None:
         self.table.clear()
@@ -143,6 +148,7 @@ class CrosstabPanel(QWidget):
         self.caption.setText("")
         self.export_excel_btn.setEnabled(False)
         self.export_csv_btn.setEnabled(False)
+        self.export_png_btn.setEnabled(False)
 
     # ── Private ────────────────────────────────────────────────────────────────
 
@@ -263,6 +269,19 @@ class CrosstabPanel(QWidget):
         if path:
             try:
                 self._exporter.export_table_csv(self._display.df, path)
+                QMessageBox.information(self, "Export", f"Saved to:\n{path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export error", str(e))
+
+    def _export_png(self) -> None:
+        if not self._display:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export to PNG", "crosstab.png", "PNG image (*.png)"
+        )
+        if path:
+            try:
+                self._exporter.export_table_png(self._display.df, path)
                 QMessageBox.information(self, "Export", f"Saved to:\n{path}")
             except Exception as e:
                 QMessageBox.critical(self, "Export error", str(e))
