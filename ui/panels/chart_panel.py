@@ -56,8 +56,10 @@ class ChartPanel(QWidget):
         ctrl_row = QHBoxLayout()
 
         self.violin_radio = QRadioButton("Clustered bar chart")
-        self.bar_radio = QRadioButton("Stacked bar chart")
+        self.bar_radio    = QRadioButton("Stacked bar chart")
         self.violin_radio.setChecked(True)
+        self._last_rt = None
+        self._last_ct = None
 
         mode_group = QButtonGroup(self)
         for rb in (self.violin_radio, self.bar_radio):
@@ -127,6 +129,40 @@ class ChartPanel(QWidget):
         if hasattr(self, "_df"):
             self._render()
 
+    def _update_controls(self, rt: VariableType, ct: VariableType) -> None:
+        """Relabel and show/hide radio buttons to match the active variable combination."""
+        if rt == self._last_rt and ct == self._last_ct:
+            return
+        self._last_rt, self._last_ct = rt, ct
+
+        both_interval = (rt == VariableType.INTERVAL and ct == VariableType.INTERVAL)
+        both_cat = (
+            rt in (VariableType.NOMINAL, VariableType.ORDINAL) and
+            ct in (VariableType.NOMINAL, VariableType.ORDINAL)
+        )
+
+        for rb in (self.violin_radio, self.bar_radio):
+            rb.blockSignals(True)
+
+        if both_interval:
+            self.violin_radio.setText("Scatter plot")
+            self.violin_radio.setChecked(True)
+            self.violin_radio.setEnabled(False)
+            self.bar_radio.setVisible(False)
+        elif both_cat:
+            self.violin_radio.setText("Clustered bar chart")
+            self.bar_radio.setText("Stacked bar chart")
+            self.violin_radio.setEnabled(True)
+            self.bar_radio.setVisible(True)
+        else:  # one interval, one categorical
+            self.violin_radio.setText("Violin plot")
+            self.bar_radio.setText("Box plot")
+            self.violin_radio.setEnabled(True)
+            self.bar_radio.setVisible(True)
+
+        for rb in (self.violin_radio, self.bar_radio):
+            rb.blockSignals(False)
+
     def _render(self) -> None:
         if not hasattr(self, "_df"):
             return
@@ -136,6 +172,7 @@ class ChartPanel(QWidget):
             col0 = self._col_vars[0]
             rt = self._var_types.get(row0, VariableType.NOMINAL)
             ct = self._var_types.get(col0, VariableType.NOMINAL)
+            self._update_controls(rt, ct)
 
             both_cat = (
                 rt in (VariableType.NOMINAL, VariableType.ORDINAL) and

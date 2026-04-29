@@ -87,6 +87,7 @@ class CrosstabPanel(QWidget):
         self._exporter = Exporter()
         self._display: DisplayResult | None = None
         self._result: CrosstabResult | None = None
+        self._summary_df: pd.DataFrame | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -133,10 +134,24 @@ class CrosstabPanel(QWidget):
         result: CrosstabResult,
         stat_result: StatTestResult | None = None,
     ) -> None:
-        self._display = display
-        self._result  = result
+        self._display    = display
+        self._result     = result
+        self._summary_df = None
         self._populate_table(display)
         self._update_caption(result, stat_result)
+        self.export_excel_btn.setEnabled(True)
+        self.export_csv_btn.setEnabled(True)
+        self.export_png_btn.setEnabled(True)
+
+    def set_summary(self, summary_df: pd.DataFrame) -> None:
+        """Render a descriptive-statistics table (interval × interval mode)."""
+        self._display    = None
+        self._result     = None
+        self._summary_df = summary_df
+        self._populate_simple(summary_df)
+        self.caption.setText(
+            "Descriptive statistics  |  interval × interval — no crosstab"
+        )
         self.export_excel_btn.setEnabled(True)
         self.export_csv_btn.setEnabled(True)
         self.export_png_btn.setEnabled(True)
@@ -146,11 +161,48 @@ class CrosstabPanel(QWidget):
         self.table.setRowCount(0)
         self.table.setColumnCount(0)
         self.caption.setText("")
+        self._display    = None
+        self._summary_df = None
         self.export_excel_btn.setEnabled(False)
         self.export_csv_btn.setEnabled(False)
         self.export_png_btn.setEnabled(False)
 
     # ── Private ────────────────────────────────────────────────────────────────
+
+    def _populate_simple(self, df: pd.DataFrame) -> None:
+        """Render a plain DataFrame with no N/% interleaving (summary stats mode)."""
+        self.table.clear()
+        self.table.setItemDelegate(QStyledItemDelegate(self.table))
+        nrows, ncols = df.shape
+        self.table.setRowCount(nrows)
+        self.table.setColumnCount(ncols)
+        self.table.setHorizontalHeaderLabels([str(c) for c in df.columns])
+        self.table.setVerticalHeaderLabels([str(i) for i in df.index])
+
+        bold = QFont()
+        bold.setBold(True)
+        hdr_bg = QColor(TABLE_HEADER_BG)
+        hdr_fg = QColor(TABLE_HEADER_FG)
+
+        for r in range(nrows):
+            for c in range(ncols):
+                val = df.iloc[r, c]
+                if isinstance(val, float):
+                    text = f"{val:,.3f}"
+                elif isinstance(val, (int, np.integer)):
+                    text = f"{int(val):,}"
+                else:
+                    text = str(val)
+                item = QTableWidgetItem(text)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table.setItem(r, c, item)
+
+        for j in range(ncols):
+            h = self.table.horizontalHeaderItem(j)
+            if h:
+                h.setBackground(QBrush(hdr_bg))
+                h.setForeground(QBrush(hdr_fg))
+                h.setFont(bold)
 
     def _populate_table(self, display: DisplayResult) -> None:
         df = display.df
@@ -247,41 +299,49 @@ class CrosstabPanel(QWidget):
             parts.append(f"p = {stat_result.p_value:.4f} ({sig_label}) — see Statistics tab")
         self.caption.setText("  |  ".join(parts))
 
+    def _active_df(self) -> pd.DataFrame | None:
+        if self._display is not None:
+            return self._display.df
+        return self._summary_df
+
     def _export_excel(self) -> None:
-        if not self._display:
+        df = self._active_df()
+        if df is None:
             return
         path, _ = QFileDialog.getSaveFileName(
             self, "Export to Excel", "crosstab.xlsx", "Excel (*.xlsx)"
         )
         if path:
             try:
-                self._exporter.export_table_excel(self._display.df, path)
+                self._exporter.export_table_excel(df, path)
                 QMessageBox.information(self, "Export", f"Saved to:\n{path}")
             except Exception as e:
                 QMessageBox.critical(self, "Export error", str(e))
 
     def _export_csv(self) -> None:
-        if not self._display:
+        df = self._active_df()
+        if df is None:
             return
         path, _ = QFileDialog.getSaveFileName(
             self, "Export to CSV", "crosstab.csv", "CSV (*.csv)"
         )
         if path:
             try:
-                self._exporter.export_table_csv(self._display.df, path)
+                self._exporter.export_table_csv(df, path)
                 QMessageBox.information(self, "Export", f"Saved to:\n{path}")
             except Exception as e:
                 QMessageBox.critical(self, "Export error", str(e))
 
     def _export_png(self) -> None:
-        if not self._display:
+        df = self._active_df()
+        if df is None:
             return
         path, _ = QFileDialog.getSaveFileName(
             self, "Export to PNG", "crosstab.png", "PNG image (*.png)"
         )
         if path:
             try:
-                self._exporter.export_table_png(self._display.df, path)
+                self._exporter.export_table_png(df, path)
                 QMessageBox.information(self, "Export", f"Saved to:\n{path}")
             except Exception as e:
                 QMessageBox.critical(self, "Export error", str(e))

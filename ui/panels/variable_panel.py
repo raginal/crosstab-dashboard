@@ -2,6 +2,7 @@ import pandas as pd
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
     QComboBox, QPushButton, QCheckBox, QFormLayout, QSizePolicy,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import Optional
@@ -288,12 +289,10 @@ class VariablePanel(QWidget):
         ] if v]
 
         if not row_vars:
-            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Missing selection",
                                 "Please select at least one row variable.")
             return
         if not col_vars:
-            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Missing selection",
                                 "Please select at least one column variable.")
             return

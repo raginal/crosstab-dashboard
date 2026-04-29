@@ -23,8 +23,9 @@ A local desktop application (PyQt6) for contingency table analysis of survey dat
 | Statistical tests | χ², Fisher's exact, Mann-Whitney U, Kruskal-Wallis, Spearman ρ, Pearson r |
 | Effect sizes | Cramér's V (bias-corrected), rank-biserial r, η², Spearman's ρ, Pearson's r |
 | Weighting | Optional — weighted counts/% in table; statistical tests use unweighted data |
-| Charts | Clustered bar chart (default) or Stacked bar chart for categorical; scatter for interval×interval |
-| Export | Crosstab → Excel, CSV, or PNG; charts → PNG |
+| Crosstab table | Shown for categorical combinations; replaced by descriptive stats table for interval × interval |
+| Charts | Labels adapt by variable type: Clustered/Stacked bar (categorical); Violin/Box plot (interval × categorical); Scatter plot only (interval × interval) |
+| Export | Crosstab or summary table → Excel, CSV, or PNG; charts → PNG |
 
 ---
 
@@ -176,9 +177,12 @@ Browse button → sheet selector for Excel → `DataLoader.load()`. Emits `data_
 Emits `analysis_requested(config)` where `config` contains `row_vars`, `col_vars`, `var_types`, `consolidations`, `aggfunc_col`, `aggfunc`, `weight_col`.
 
 ### `ui/panels/crosstab_panel.py` — `CrosstabPanel`
-Renders `DisplayResult` as a `QTableWidget`. N and % values for each category are shown in the same cell via `_TwoLineCellDelegate` (a `QStyledItemDelegate` subclass): the count appears in the top half of the cell; the column percentage appears in the bottom half in smaller, dimmed text.
+Has two display modes set by `MainWindow`:
 
-Color logic: Total row and Total column → `TABLE_TOTAL_BG` (light blue). Column headers → `TABLE_HEADER_BG` (dark slate). Three export buttons write the underlying `DisplayResult.df` to Excel, CSV, or PNG (via `Exporter.export_table_png`).
+- **Crosstab mode** (`set_result`) — renders `DisplayResult` as a `QTableWidget`. N and % values for each category are shown in the same cell via `_TwoLineCellDelegate`: the count appears in the top half; the column percentage appears in the bottom half in smaller, dimmed text. Tab label is "Crosstab Table".
+- **Summary mode** (`set_summary`) — used when all selected variables are Interval. Renders a plain descriptive statistics table (N, Mean, Median, Std Dev, Min, Max, one row per variable) via `_populate_simple`. Tab label changes to "Summary Statistics".
+
+Color logic: column headers → `TABLE_HEADER_BG` (dark slate). Three export buttons (Excel, CSV, PNG) work in both modes.
 
 ### `ui/panels/stats_panel.py` — `StatsPanel`
 Renders `StatTestResult` as styled HTML in a read-only `QTextEdit`. Note text is HTML-escaped before insertion to prevent `<` characters (e.g. in "expected cells are < 5") from truncating the display.
@@ -188,15 +192,19 @@ Supplemental sections:
 - **Supplemental Spearman** — shown when Pearson is used (non-parametric cross-check)
 
 ### `ui/panels/chart_panel.py` — `ChartPanel`
-Embeds a `FigureCanvasQTAgg` (matplotlib) with a `NavigationToolbar2QT`. Two radio buttons let the analyst switch chart type:
+Embeds a `FigureCanvasQTAgg` (matplotlib) with a `NavigationToolbar2QT`. Radio button labels and visibility adapt dynamically to the selected variable types:
 
-- **Clustered bar chart** (default) — grouped countplot; used for any variable combination.
-- **Stacked bar chart** — 100% column-% stacked bar; used for categorical × categorical.
+| Variable combination | Radio button 1 | Radio button 2 |
+|---|---|---|
+| Both categorical | Clustered bar chart (default) | Stacked bar chart |
+| Interval × Categorical | Violin plot (default) | Box plot |
+| Both interval | Scatter plot (disabled — no choice) | hidden |
 
 Auto-selected chart logic by variable type:
 - Both categorical + Clustered → grouped countplot (`sns.countplot`)
-- Both categorical + Stacked → 100% stacked bar (% only; counts are already in the Crosstab Table)
-- Interval × Interval → scatter plot with linear trend line (radio buttons ignored)
+- Both categorical + Stacked → 100% stacked bar (% only; counts are already in the table)
+- Interval × Categorical → violin plot or box plot (user toggle)
+- Interval × Interval → scatter plot with linear trend line (radio button is informational only)
 
 All charts draw colors from `ui/palette.py`: categorical charts use `MPL_PALETTE` (passed as `palette=` to seaborn or as explicit colors to pandas `.plot()`), scatter points use `MPL_SCATTER`, and the trend line uses `MPL_TREND`. Titles follow the uniform scheme `"{A}  by  {B}"` (scatter uses `"{X}  ×  {Y}"`). Changing those constants in `palette.py` updates every chart type simultaneously.
 

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from core.variable_classifier import VariableClassifier
+from core.variable_classifier import VariableClassifier, VariableType
 from core.consolidator import ResponseConsolidator
 from core.crosstab_builder import CrosstabBuilder
 from core.statistics import StatisticalTester
@@ -125,22 +125,18 @@ class MainWindow(QMainWindow):
             self._consolidator.set_from_dict(config["consolidations"])
             df_work = self._consolidator.apply(self._df)
 
-            # Step 2 — build crosstab
-            result = self._builder.build(
-                df_work,
-                row_vars=config["row_vars"],
-                col_vars=config["col_vars"],
-                aggfunc_col=config.get("aggfunc_col"),
-                aggfunc=config.get("aggfunc", "mean"),
-                weight_col=config.get("weight_col"),
+            all_vars = config["row_vars"] + config["col_vars"]
+            all_interval = all(
+                config["var_types"].get(v, VariableType.NOMINAL) == VariableType.INTERVAL
+                for v in all_vars
             )
 
-            # Step 3 — format display
-            display = self._builder.format_display(result)
+            if all_interval:
+                # ── Interval × Interval path ───────────────────────────────────
+                summary_df = self._compute_interval_summary(df_work, all_vars)
+                self.crosstab_panel.set_summary(summary_df)
+                self.right_tabs.setTabText(0, "Summary Statistics")
 
-            # Step 4 — run stats (skip for aggfunc mode)
-            stat_result = None
-            if not result.aggfunc_col:
                 stat_result = self._tester.test(
                     df_work,
                     row_vars=config["row_vars"],
@@ -148,34 +144,92 @@ class MainWindow(QMainWindow):
                     var_types=config["var_types"],
                     weighted=bool(config.get("weight_col")),
                 )
+                n_total = df_work[all_vars].dropna().shape[0]
+                self.stats_panel.set_result(stat_result, n_total)
 
-            # Step 5 — push to panels
-            self.crosstab_panel.set_result(display, result, stat_result)
-            if stat_result:
-                self.stats_panel.set_result(stat_result, result.n_total)
-            else:
-                self.stats_panel.clear()
-
-            self.chart_panel.set_data(
-                df_work,
-                row_vars=config["row_vars"],
-                col_vars=config["col_vars"],
-                var_types=config["var_types"],
-            )
-
-            # Switch to crosstab tab and report
-            self.right_tabs.setCurrentIndex(0)
-            sig_msg = ""
-            if stat_result:
-                sig_msg = (
-                    f"  |  {stat_result.test_name}: "
-                    f"p = {stat_result.p_value:.4f} {stat_result.sig_stars}"
+                self.chart_panel.set_data(
+                    df_work,
+                    row_vars=config["row_vars"],
+                    col_vars=config["col_vars"],
+                    var_types=config["var_types"],
                 )
-            self._status.showMessage(
-                f"Analysis complete  |  n = {result.n_total:,}{sig_msg}"
-            )
+                self.right_tabs.setCurrentIndex(0)
+                self._status.showMessage(
+                    f"Analysis complete  |  n = {n_total:,}  |  "
+                    f"{stat_result.test_name}: p = {stat_result.p_value:.4f} "
+                    f"{stat_result.sig_stars}"
+                )
+
+            else:
+                # ── Standard crosstab path ─────────────────────────────────────
+                self.right_tabs.setTabText(0, "Crosstab Table")
+
+                # Step 2 — build crosstab
+                result = self._builder.build(
+                    df_work,
+                    row_vars=config["row_vars"],
+                    col_vars=config["col_vars"],
+                    aggfunc_col=config.get("aggfunc_col"),
+                    aggfunc=config.get("aggfunc", "mean"),
+                    weight_col=config.get("weight_col"),
+                )
+
+                # Step 3 — format display
+                display = self._builder.format_display(result)
+
+                # Step 4 — run stats (skip for aggfunc mode)
+                stat_result = None
+                if not result.aggfunc_col:
+                    stat_result = self._tester.test(
+                        df_work,
+                        row_vars=config["row_vars"],
+                        col_vars=config["col_vars"],
+                        var_types=config["var_types"],
+                        weighted=bool(config.get("weight_col")),
+                    )
+
+                # Step 5 — push to panels
+                self.crosstab_panel.set_result(display, result, stat_result)
+                if stat_result:
+                    self.stats_panel.set_result(stat_result, result.n_total)
+                else:
+                    self.stats_panel.clear()
+
+                self.chart_panel.set_data(
+                    df_work,
+                    row_vars=config["row_vars"],
+                    col_vars=config["col_vars"],
+                    var_types=config["var_types"],
+                )
+
+                self.right_tabs.setCurrentIndex(0)
+                sig_msg = ""
+                if stat_result:
+                    sig_msg = (
+                        f"  |  {stat_result.test_name}: "
+                        f"p = {stat_result.p_value:.4f} {stat_result.sig_stars}"
+                    )
+                self._status.showMessage(
+                    f"Analysis complete  |  n = {result.n_total:,}{sig_msg}"
+                )
 
         except Exception as exc:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(self, "Analysis error", str(exc))
             self._status.showMessage("Analysis failed — see error dialog.")
+
+    def _compute_interval_summary(
+        self, df: pd.DataFrame, variables: list[str]
+    ) -> pd.DataFrame:
+        rows = {}
+        for v in variables:
+            col = df[v].dropna()
+            rows[v] = {
+                "N":       int(len(col)),
+                "Mean":    round(float(col.mean()), 3),
+                "Median":  round(float(col.median()), 3),
+                "Std Dev": round(float(col.std()), 3),
+                "Min":     round(float(col.min()), 3),
+                "Max":     round(float(col.max()), 3),
+            }
+        return pd.DataFrame(rows).T
