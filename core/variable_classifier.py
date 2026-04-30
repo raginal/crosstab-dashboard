@@ -26,6 +26,26 @@ class VariableClassifier:
     ORDINAL_MAX_UNIQUE = 15
     INTERVAL_CARDINALITY_RATIO = 0.5
 
+    @staticmethod
+    def coerce_interval_series(series: pd.Series) -> pd.Series:
+        """
+        Strip currency signs, comparison operators, commas, and whitespace,
+        then coerce to float.  Non-parseable values become NaN.
+
+        Handles common export formats such as "$1,234.56", ">50", "< 20", ">=100".
+        Pass-through for already-numeric series.
+        """
+        if pd.api.types.is_numeric_dtype(series):
+            return series
+        cleaned = (
+            series.astype(str)
+            .str.strip()
+            .str.replace(r'[$,]', '', regex=True)
+            .str.replace(r'^[><]=?', '', regex=True)
+            .str.replace(r'\s+', '', regex=True)
+        )
+        return pd.to_numeric(cleaned, errors='coerce')
+
     def classify(self, series: pd.Series) -> VariableType:
         clean = series.dropna()
         if clean.empty:
@@ -35,6 +55,18 @@ class VariableClassifier:
             return VariableType.NOMINAL
 
         if series.dtype == object or str(series.dtype) == 'category':
+            coerced = VariableClassifier.coerce_interval_series(clean)
+            valid_frac = coerced.notna().mean()
+            if valid_frac >= 0.8:
+                n_unique = coerced.nunique()
+                n = len(coerced)
+                if n_unique / n > self.INTERVAL_CARDINALITY_RATIO or n_unique > 20:
+                    return VariableType.INTERVAL
+                if self._is_likert_scale(coerced):
+                    return VariableType.ORDINAL
+                if n_unique <= self.ORDINAL_MAX_UNIQUE:
+                    return VariableType.ORDINAL
+                return VariableType.INTERVAL
             return VariableType.NOMINAL
 
         if pd.api.types.is_numeric_dtype(series):

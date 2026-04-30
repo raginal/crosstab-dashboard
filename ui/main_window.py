@@ -125,6 +125,18 @@ class MainWindow(QMainWindow):
             self._consolidator.set_from_dict(config["consolidations"])
             df_work = self._consolidator.apply(self._df)
 
+            # Step 1b — coerce interval variables to numeric
+            # (handles string-encoded numbers and symbols like >, <, $)
+            var_types = config["var_types"]
+            coerce_vars = [
+                v for v in config["row_vars"] + config["col_vars"]
+                if var_types.get(v) == VariableType.INTERVAL
+            ]
+            if coerce_vars:
+                df_work = df_work.copy()
+                for v in coerce_vars:
+                    df_work[v] = VariableClassifier.coerce_interval_series(df_work[v])
+
             all_vars = config["row_vars"] + config["col_vars"]
             all_interval = all(
                 config["var_types"].get(v, VariableType.NOMINAL) == VariableType.INTERVAL
@@ -173,6 +185,51 @@ class MainWindow(QMainWindow):
                     aggfunc=config.get("aggfunc", "mean"),
                     weight_col=config.get("weight_col"),
                 )
+
+                # Step 2b — if table is too large, fall back to per-variable summary
+                n_data_rows = len(result.counts) - 1
+                n_data_cols = len(result.counts.columns) - 1
+                if n_data_rows > 100 or n_data_cols > 100:
+                    summary_df = self._compute_large_crosstab_summary(
+                        df_work, all_vars, config["var_types"]
+                    )
+                    self.crosstab_panel.set_summary(
+                        summary_df,
+                        "Crosstab table too large, so summary statistics shown instead.",
+                    )
+                    self.right_tabs.setTabText(0, "Summary Statistics")
+
+                    stat_result = None
+                    if not result.aggfunc_col:
+                        stat_result = self._tester.test(
+                            df_work,
+                            row_vars=config["row_vars"],
+                            col_vars=config["col_vars"],
+                            var_types=config["var_types"],
+                            weighted=bool(config.get("weight_col")),
+                        )
+                    if stat_result:
+                        self.stats_panel.set_result(stat_result, result.n_total)
+                    else:
+                        self.stats_panel.clear()
+                    self.chart_panel.set_data(
+                        df_work,
+                        row_vars=config["row_vars"],
+                        col_vars=config["col_vars"],
+                        var_types=config["var_types"],
+                    )
+                    self.right_tabs.setCurrentIndex(0)
+                    sig_msg = ""
+                    if stat_result:
+                        sig_msg = (
+                            f"  |  {stat_result.test_name}: "
+                            f"p = {stat_result.p_value:.4f} {stat_result.sig_stars}"
+                        )
+                    self._status.showMessage(
+                        f"Analysis complete (large table — summary shown)  "
+                        f"|  n = {result.n_total:,}{sig_msg}"
+                    )
+                    return
 
                 # Step 3 — format display
                 display = self._builder.format_display(result)
@@ -232,4 +289,43 @@ class MainWindow(QMainWindow):
                 "Min":     round(float(col.min()), 3),
                 "Max":     round(float(col.max()), 3),
             }
+        return pd.DataFrame(rows).T
+
+    def _compute_large_crosstab_summary(
+        self,
+        df: pd.DataFrame,
+        variables: list[str],
+        var_types: dict,
+    ) -> pd.DataFrame:
+        """Per-variable summaries used when the crosstab would exceed 100 rows/cols."""
+        rows = {}
+        for v in variables:
+            col = df[v].dropna()
+            vtype = var_types.get(v, VariableType.NOMINAL)
+            if vtype == VariableType.INTERVAL and pd.api.types.is_numeric_dtype(col):
+                rows[v] = {
+                    "Type":    vtype.value,
+                    "N":       int(len(col)),
+                    "Unique":  int(col.nunique()),
+                    "Mode":    "—",
+                    "Mean":    round(float(col.mean()), 3),
+                    "Median":  round(float(col.median()), 3),
+                    "Std Dev": round(float(col.std()), 3),
+                    "Min":     round(float(col.min()), 3),
+                    "Max":     round(float(col.max()), 3),
+                }
+            else:
+                mode_vals = col.mode()
+                mode_str = str(mode_vals.iloc[0]) if len(mode_vals) > 0 else "—"
+                rows[v] = {
+                    "Type":    vtype.value,
+                    "N":       int(len(col)),
+                    "Unique":  int(col.nunique()),
+                    "Mode":    mode_str,
+                    "Mean":    "—",
+                    "Median":  "—",
+                    "Std Dev": "—",
+                    "Min":     "—",
+                    "Max":     "—",
+                }
         return pd.DataFrame(rows).T
