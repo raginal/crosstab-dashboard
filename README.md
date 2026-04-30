@@ -213,7 +213,7 @@ Auto-selected chart logic by variable type:
 
 **Windows chart resolution:** On Windows HiDPI screens charts may appear soft because Qt does not automatically upscale the matplotlib canvas the way macOS Retina does. To improve sharpness, increase the `dpi` value in the `Figure(...)` constructor in `ui/panels/chart_panel.py` (currently `dpi=150`). Higher values (e.g. `200`) render more crisply but use more memory; lower values reduce memory at the cost of sharpness. The default of `150` is a reasonable balance for most HiDPI displays.
 
-All charts draw colors from `ui/palette.py`: categorical charts use `MPL_PALETTE` (passed as `palette=` to seaborn or as explicit colors to pandas `.plot()`), scatter points use `MPL_SCATTER`, and the trend line uses `MPL_TREND`. Titles follow the uniform scheme `"{A}  by  {B}"` (scatter uses `"{X}  ×  {Y}"`). Changing those constants in `palette.py` updates every chart type simultaneously.
+All charts draw colors from `ui/palette.py`: categorical charts use `MPL_PALETTE` (passed as `palette=` to seaborn or as explicit colors to pandas `.plot()`), scatter points use `MPL_SCATTER`, and the trend line uses `MPL_TREND`. Titles follow the uniform scheme `"{A} by {B}"` (scatter uses `"{X}  ×  {Y}"`). Changing those constants in `palette.py` updates every chart type simultaneously.
 
 ---
 
