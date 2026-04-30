@@ -222,7 +222,7 @@ class ChartPanel(QWidget):
         colors = sns.color_palette(MPL_PALETTE, n_colors=len(ct_pct.columns))
         ax = self.fig.add_subplot(111)
         ct_pct.plot(kind='bar', stacked=True, ax=ax, legend=True, color=colors)
-        ax.set_title(f"% {col_var}  by  {row_var}")
+        ax.set_title(f"% {col_var} by {row_var}")
         ax.set_xlabel(row_var)
         ax.set_ylabel("Column %")
         ax.tick_params(axis='x', rotation=30)
@@ -233,7 +233,7 @@ class ChartPanel(QWidget):
         df = self._df[[row_var, col_var]].dropna()
         ax = self.fig.add_subplot(111)
         sns.countplot(data=df, x=col_var, hue=row_var, ax=ax, palette=MPL_PALETTE)
-        ax.set_title(f"{col_var}  by  {row_var}")
+        ax.set_title(f"{col_var} by {row_var}")
         ax.set_xlabel(col_var)
         ax.set_ylabel("Count")
         ax.tick_params(axis='x', rotation=30)
@@ -256,7 +256,7 @@ class ChartPanel(QWidget):
             sns.boxplot(data=df, x=cat_var, y=num_var, ax=ax, order=order,
                         palette=MPL_PALETTE)
 
-        ax.set_title(f"{num_var}  by  {cat_var}")
+        ax.set_title(f"{num_var} by {cat_var}")
         ax.set_xlabel(cat_var)
         ax.set_ylabel(num_var)
         ax.tick_params(axis='x', rotation=30)
@@ -290,7 +290,7 @@ class ChartPanel(QWidget):
 
         ax.set_yticks(range(len(cats)))
         ax.set_yticklabels(cats)
-        ax.set_title(f"{row_var}  by  {col_var}")
+        ax.set_title(f"{row_var} by {col_var}")
         ax.set_xlabel(col_var)
         ax.set_ylabel(row_var)
         ax.tick_params(axis='x', rotation=30)
