@@ -143,14 +143,14 @@ class CrosstabPanel(QWidget):
         self.export_csv_btn.setEnabled(True)
         self.export_png_btn.setEnabled(True)
 
-    def set_summary(self, summary_df: pd.DataFrame) -> None:
-        """Render a descriptive-statistics table (interval × interval mode)."""
+    def set_summary(self, summary_df: pd.DataFrame, caption: str = "") -> None:
+        """Render a descriptive-statistics table (interval × interval mode, or large-table fallback)."""
         self._display    = None
         self._result     = None
         self._summary_df = summary_df
         self._populate_simple(summary_df)
         self.caption.setText(
-            "Descriptive statistics  |  interval × interval — no crosstab"
+            caption if caption else "Descriptive statistics  |  interval × interval — no crosstab"
         )
         self.export_excel_btn.setEnabled(True)
         self.export_csv_btn.setEnabled(True)

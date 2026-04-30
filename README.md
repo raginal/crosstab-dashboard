@@ -23,7 +23,7 @@ A local desktop application (PyQt6) for contingency table analysis of survey dat
 | Statistical tests | χ², Fisher's exact, Mann-Whitney U, Kruskal-Wallis, Spearman ρ, Pearson r |
 | Effect sizes | Cramér's V (bias-corrected), rank-biserial r, η², Spearman's ρ, Pearson's r |
 | Weighting | Optional — weighted counts/% in table; statistical tests use unweighted data |
-| Crosstab table | Shown for categorical combinations; replaced by descriptive stats table for interval × interval |
+| Crosstab table | Shown for categorical combinations; auto-replaced by per-variable summary table when the table would exceed 100 rows or columns, or for interval × interval |
 | Charts | Labels adapt by variable type: Clustered/Stacked bar (categorical); Violin/Box plot (interval × categorical); Scatter plot only (interval × interval) |
 | Export | Crosstab or summary table → Excel, CSV, or PNG; charts → PNG |
 
@@ -78,10 +78,12 @@ crosstabs/
 
 **Core pipeline** (in `MainWindow._on_analysis_requested`):
 1. Apply response consolidations via `ResponseConsolidator`
-2. Build contingency table via `CrosstabBuilder.build()`
-3. Format for display via `CrosstabBuilder.format_display()`
-4. Run statistical test via `StatisticalTester.test()`
-5. Push results to `CrosstabPanel`, `StatsPanel`, `ChartPanel`
+2. Coerce any Interval/Ratio columns to numeric (strips `$`, `>`, `<`, commas, whitespace)
+3. If all variables are Interval → show descriptive summary + run correlation test
+4. Otherwise: build contingency table via `CrosstabBuilder.build()`; if the resulting table exceeds 100 data rows or columns, fall back to per-variable summary
+5. Format for display via `CrosstabBuilder.format_display()`
+6. Run statistical test via `StatisticalTester.test()`
+7. Push results to `CrosstabPanel`, `StatsPanel`, `ChartPanel`
 
 ---
 
@@ -99,11 +101,14 @@ Automatically assigns each column a measurement level.
 `VariableType` enum values: `Nominal`, `Ordinal`, `Interval`
 
 **Classification heuristic** (applied per column):
-1. Non-numeric → `Nominal`
-2. Numeric, Likert-scale pattern (contiguous integers, starts at 0 or 1, ends between 4–12, ≥3 values) → `Ordinal`
-3. Numeric, ≤15 unique values → `Ordinal`
-4. Numeric, >50% unique values or >20 distinct values → `Interval`
-5. Otherwise → `Ordinal`
+1. String/object column where ≥ 80% of values parse as numeric after stripping `$`, `>`, `<`, `,`, and whitespace → treated as numeric for the remaining steps.
+2. Non-numeric (after the above attempt) → `Nominal`
+3. Numeric, Likert-scale pattern (contiguous integers, starts at 0 or 1, ends between 4–12, ≥3 values) → `Ordinal`
+4. Numeric, ≤15 unique values → `Ordinal`
+5. Numeric, >50% unique values or >20 distinct values → `Interval`
+6. Otherwise → `Ordinal`
+
+**`VariableClassifier.coerce_interval_series(series)`** — static utility used both during classification and at analysis time to strip currency symbols (`$`), comparison operators (`>`, `<`, `>=`, `<=`), commas, and surrounding whitespace, then coerce to `float`. Handles common survey export formats such as `"$1,234.56"`, `">50"`, `"< 20"`. Pass-through for already-numeric series.
 
 The analyst can override the inferred type in the UI.
 
@@ -180,7 +185,7 @@ Emits `analysis_requested(config)` where `config` contains `row_vars`, `col_vars
 Has two display modes set by `MainWindow`:
 
 - **Crosstab mode** (`set_result`) — renders `DisplayResult` as a `QTableWidget`. N and % values for each category are shown in the same cell via `_TwoLineCellDelegate`: the count appears in the top half; the column percentage appears in the bottom half in smaller, dimmed text. Tab label is "Crosstab Table".
-- **Summary mode** (`set_summary`) — used when all selected variables are Interval. Renders a plain descriptive statistics table (N, Mean, Median, Std Dev, Min, Max, one row per variable) via `_populate_simple`. Tab label changes to "Summary Statistics".
+- **Summary mode** (`set_summary(df, caption="")`) — used in two situations: (1) all selected variables are Interval/Ratio, or (2) the generated crosstab would exceed 100 data rows or 100 data columns. Renders a plain descriptive statistics table via `_populate_simple`. Tab label changes to "Summary Statistics". An optional `caption` argument overrides the default caption line.
 
 Color logic: column headers → `TABLE_HEADER_BG` (dark slate). Three export buttons (Excel, CSV, PNG) work in both modes.
 
