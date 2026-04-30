@@ -76,7 +76,7 @@ class ChartPanel(QWidget):
         layout.addLayout(ctrl_row)
 
         # Matplotlib canvas
-        self.fig = Figure(figsize=(8, 5), tight_layout=True)
+        self.fig = Figure(figsize=(8, 5), dpi=150, tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.fig)
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         layout.addWidget(self.toolbar)
@@ -266,7 +266,7 @@ class ChartPanel(QWidget):
             vals = df.loc[df[cat_var] == grp, num_var].dropna()
             if len(vals):
                 ax.text(tick, vals.median(), f"  Md={vals.median():.1f}",
-                        va='center', fontsize=8, color='#444')
+                        va='bottom', fontsize=8, color='#444')
 
     def _ordinal_dist_chart(self, row_var: str, col_var: str) -> None:
         """Box/violin for ordinal × ordinal by encoding row_var as integers."""
