@@ -16,7 +16,7 @@ from ui.dialogs.consolidate_dialog import ConsolidateDialog
 class VariableSelector(QWidget):
     """
     One row of controls representing a single variable slot:
-        [variable dropdown ─────────] [type] [Consolidate…]
+        [variable dropdown ─────────] [type] [Clean]
 
     The type dropdown auto-updates when the variable changes (reflecting the
     classifier's verdict) but can be manually overridden by the analyst.
@@ -41,8 +41,8 @@ class VariableSelector(QWidget):
         self.type_combo.setFixedWidth(135)
         self.type_combo.setEnabled(False)
 
-        self.consolidate_btn = QPushButton("Consolidate…")
-        self.consolidate_btn.setFixedWidth(100)
+        self.consolidate_btn = QPushButton("Clean")
+        self.consolidate_btn.setFixedWidth(70)
         self.consolidate_btn.setStyleSheet("font-size: 11px;")
         self.consolidate_btn.setEnabled(False)
 
@@ -273,7 +273,12 @@ class VariablePanel(QWidget):
         dlg = ConsolidateDialog(col, values, existing_mapping=existing, parent=self)
         if dlg.exec():
             mapping = dlg.get_mapping()
-            if any(str(orig) != grp for orig, grp in mapping.items()):
+            # Save if any value is filtered (None) or renamed from its original
+            modified = any(
+                grp is None or str(orig) != grp
+                for orig, grp in mapping.items()
+            )
+            if modified:
                 self._consolidations[col] = mapping
             else:
                 self._consolidations.pop(col, None)
