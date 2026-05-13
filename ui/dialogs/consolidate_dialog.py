@@ -14,6 +14,7 @@ class ConsolidateDialog(QDialog):
     Lets the analyst filter and recode response options.
 
     Three-column table: Include (checkbox) | Original Value | New Group Name.
+    Clicking the Include column header toggles all checkboxes.
     Unchecked rows are excluded from the analysis entirely.
     Values sharing the same group name are merged in the analysis.
 
@@ -43,7 +44,8 @@ class ConsolidateDialog(QDialog):
         instr = QLabel(
             "Edit <b>New Group Name</b> to merge values together. "
             "Rows sharing the same group name will be combined in the crosstab. "
-            "Uncheck <b>Include</b> to exclude a value from the analysis entirely."
+            "Uncheck <b>Include</b> to exclude a value from the analysis entirely. "
+            "Click the <b>Include</b> column header to select or deselect all."
         )
         instr.setWordWrap(True)
         layout.addWidget(instr)
@@ -57,6 +59,8 @@ class ConsolidateDialog(QDialog):
         self.table.setColumnWidth(0, 62)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.horizontalHeaderItem(0).setToolTip("Click to select / deselect all")
+        self.table.horizontalHeader().sectionClicked.connect(self._on_header_clicked)
         self.table.cellClicked.connect(self._on_cell_clicked)
 
         for i, val in enumerate(self._orig_values):
@@ -89,30 +93,8 @@ class ConsolidateDialog(QDialog):
 
         layout.addWidget(self.table)
 
-        # ── Controls row (filter section | consolidation section) ─────────
+        # ── Consolidation controls ────────────────────────────────────────
         ctrl_layout = QHBoxLayout()
-        ctrl_layout.setSpacing(0)
-
-        # — Filter section —
-        all_checked = all(
-            existing_mapping.get(v) is not None for v in self._orig_values
-        ) if existing_mapping is not None else True
-        self._all_selected = all_checked
-        self._toggle_btn = QPushButton("Unselect all" if all_checked else "Select all")
-        self._toggle_btn.setFixedWidth(100)
-        self._toggle_btn.clicked.connect(self._toggle_select_all)
-        ctrl_layout.addWidget(self._toggle_btn)
-
-        # Vertical divider
-        ctrl_layout.addSpacing(10)
-        sep_v = QFrame()
-        sep_v.setFrameShape(QFrame.Shape.VLine)
-        sep_v.setFrameShadow(QFrame.Shadow.Plain)
-        sep_v.setStyleSheet(f"color: {GREY_200};")
-        ctrl_layout.addWidget(sep_v)
-        ctrl_layout.addSpacing(10)
-
-        # — Consolidation section —
         ctrl_layout.addWidget(QLabel("Set selected rows to:"))
         ctrl_layout.addSpacing(6)
         self._quick_edit = QLineEdit()
@@ -126,7 +108,6 @@ class ConsolidateDialog(QDialog):
         ctrl_layout.addWidget(apply_btn)
         ctrl_layout.addSpacing(4)
         ctrl_layout.addWidget(reset_btn)
-
         layout.addLayout(ctrl_layout)
 
         # ── Horizontal divider ────────────────────────────────────────────
@@ -146,6 +127,10 @@ class ConsolidateDialog(QDialog):
         close_layout.addWidget(close_btn)
         layout.addLayout(close_layout)
 
+    def _on_header_clicked(self, col: int) -> None:
+        if col == 0:
+            self._toggle_select_all()
+
     def _on_cell_clicked(self, row: int, col: int) -> None:
         # Clicking the Original Value column toggles the Include checkbox for that row
         if col == 1:
@@ -153,17 +138,15 @@ class ConsolidateDialog(QDialog):
             cb.setChecked(not cb.isChecked())
 
     def _toggle_select_all(self) -> None:
-        self._all_selected = not self._all_selected
+        # If all are currently checked, uncheck all; otherwise check all
+        new_state = not all(cb.isChecked() for cb in self._checkboxes)
         for cb in self._checkboxes:
-            cb.setChecked(self._all_selected)
-        self._toggle_btn.setText("Unselect all" if self._all_selected else "Select all")
+            cb.setChecked(new_state)
 
     def _reset(self) -> None:
         for i, val in enumerate(self._orig_values):
             self._checkboxes[i].setChecked(True)
             self.table.item(i, 2).setText(str(val))
-        self._all_selected = True
-        self._toggle_btn.setText("Unselect all")
 
     def _apply_quick_group(self) -> None:
         group_name = self._quick_edit.text().strip()
